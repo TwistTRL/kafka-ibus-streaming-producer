@@ -11,6 +11,6 @@ setup(
     description='https://github.com/TwistTRL/kafka-ibus-streaming-producer',
     install_requires=[
         "docopt >= 0.6.1",
-        "kafka-python = 1.4.6"
+        "kafka-python >= 1.4.6"
     ],
 )
