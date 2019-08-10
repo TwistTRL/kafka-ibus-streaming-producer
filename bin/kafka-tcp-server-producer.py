@@ -10,25 +10,25 @@ import time
 import asyncio
 from kafka import KafkaProducer
 
-class IBUSTCPServerProducer:
+class TCPServerProducer:
   MAX_CONNECTION = 1
   LOG_FORMAT ="{} UTC_TS\t"\
               "{}"
               
-  def __init__(self,kafkaHost,kafkaPort,
-                    tcpHost,tcpPort,
-                    topic,logTopic):
-    self.kafkaHost = kafkaHost
-    self.kafkaPort = kafkaPort
-    self.tcpHost = tcpHost
-    self.tcpPort = tcpPort
+  def __init__(self,kafka_host,kafka_port,
+                    tcp_host,tcp_port,
+                    topic,log_topic):
+    self.kafka_host = kafka_host
+    self.kafka_port = kafka_port
+    self.tcp_host = tcp_host
+    self.tcp_port = tcp_port
     self.topic = topic
-    self.logTopic = logTopic
-    self.producer = KafkaProducer(bootstrap_servers=["{}:{}".format(kafkaHost,kafkaPort)])
+    self.log_topic = log_topic
+    self.producer = KafkaProducer(bootstrap_servers=["{}:{}".format(kafka_host,kafka_port)])
     self.connections = set()
     
   def log(self,msg):
-    self.producer.send( self.logTopic,
+    self.producer.send( self.log_topic,
                         self.LOG_FORMAT.format( datetime.now().timestamp(),
                                                 msg
                                                 ) \
@@ -40,7 +40,7 @@ class IBUSTCPServerProducer:
     asyncio.run(self._async_run())
     
   async def _async_run(self):
-    tcpServer = await asyncio.start_server(self.connection_handler,self.tcpHost,self.tcpPort)
+    tcpServer = await asyncio.start_server(self.connection_handler,self.tcp_host,self.tcp_port)
     await tcpServer.serve_forever()
 
   async def connection_handler(self,reader,writer):
@@ -79,21 +79,21 @@ class IBUSTCPServerProducer:
 
 def main():
   options = docopt(__doc__)
-  kafkaHost = options["<kafkaHost>"]
-  kafkaPort = options["<kafkaPort>"]
-  tcpHost = options["<tcpHost>"]
-  tcpPort = options["<tcpPort>"]
+  kafka_host = options["<kafkaHost>"]
+  kafka_port = options["<kafkaPort>"]
+  tcp_host = options["<tcpHost>"]
+  tcp_port = options["<tcpPort>"]
   topic = options["<topic>"]
-  logTopic = options["<logTopic>"]
-  IBUSTCPServerProducer = IBUSTCPServerProducer(kafkaHost,kafkaPort,
-                                                tcpHost,tcpPort,
-                                                topic,logTopic)
+  log_topic = options["<logTopic>"]
+  tcp_server_producer = TCPServerProducer(kafka_host,kafka_port,
+                                                tcp_host,tcp_port,
+                                                topic,log_topic)
   try:
-    IBUSTCPServerProducer.run()
+    tcp_server_producer.run()
   except KeyboardInterrupt:
     pass
   finally:
-    IBUSTCPServerProducer.cleanup()
+    tcp_server_producer.cleanup()
   
 if __name__ == "__main__":
   main()
