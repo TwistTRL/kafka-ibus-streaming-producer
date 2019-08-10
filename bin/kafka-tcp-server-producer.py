@@ -10,7 +10,7 @@ import time
 import asyncio
 from kafka import KafkaProducer
 
-class IBUSStreamingProducer:
+class IBUSTCPServerProducer:
   MAX_CONNECTION = 1
   LOG_FORMAT ="{} UTC_TS\t"\
               "{}"
@@ -25,7 +25,7 @@ class IBUSStreamingProducer:
     self.topic = topic
     self.logTopic = logTopic
     self.producer = KafkaProducer(bootstrap_servers=["{}:{}".format(kafkaHost,kafkaPort)])
-    self.connectionCount = 0
+    self.connections = set()
     
   def log(self,msg):
     self.producer.send( self.logTopic,
@@ -45,13 +45,20 @@ class IBUSStreamingProducer:
 
   async def connection_handler(self,reader,writer):
     addr = str(writer.get_extra_info("socket").getpeername())
-    if self.connectionCount >= self.MAX_CONNECTION:
+    # A new connection, but we can accept no more
+    if addr not in self.connections and len(self.connections)>=self.MAX_CONNECTION:
       self.log("refused "+addr)
       writer.write(b"Connection refused.")
       writer.close()
-      return 
-    self.connectionCount+=1
-    self.log("accepted "+addr)
+      return
+    # An existing connection
+    elif addr in self.connections:
+      pass
+    # A new connection, but we are able to accept
+    else:
+      self.connections.add(addr)
+      self.log("accepted "+addr)
+    # Read data from connection
     try:
       while True:
         data = await reader.read(32224)                                 # 1024*16 bytes
@@ -61,7 +68,7 @@ class IBUSStreamingProducer:
     except asyncio.CancelledError:
       pass
     finally:
-      self.connectionCount-=1
+      self.connections.remove(addr)
       self.log("closed "+addr)
       writer.close()
 
@@ -78,15 +85,15 @@ def main():
   tcpPort = options["<tcpPort>"]
   topic = options["<topic>"]
   logTopic = options["<logTopic>"]
-  ibusStreamingProducer = IBUSStreamingProducer(kafkaHost,kafkaPort,
+  IBUSTCPServerProducer = IBUSTCPServerProducer(kafkaHost,kafkaPort,
                                                 tcpHost,tcpPort,
                                                 topic,logTopic)
   try:
-    ibusStreamingProducer.run()
+    IBUSTCPServerProducer.run()
   except KeyboardInterrupt:
     pass
   finally:
-    ibusStreamingProducer.cleanup()
+    IBUSTCPServerProducer.cleanup()
   
 if __name__ == "__main__":
   main()
