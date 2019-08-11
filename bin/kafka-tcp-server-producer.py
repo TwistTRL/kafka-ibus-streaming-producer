@@ -10,6 +10,10 @@ import time
 import asyncio
 from kafka import KafkaProducer
 
+MESSAGE_START_BYTE = b'\x0B'
+MESSAGE_END_BYTE = b'\x1C'+b'\x0D'
+MESSAGE_SEGMENT_END_BYTE = b'\x0D'
+
 class TCPServerProducer:
   MAX_CONNECTION = 1
   LOG_FORMAT ="{} UTC_TS\t"\
