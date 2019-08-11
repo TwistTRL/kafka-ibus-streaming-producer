@@ -16,8 +16,8 @@ class TCPServerProducer:
               "{}"
               
   def __init__(self,kafka_host,kafka_port,
-                    tcp_host,tcp_port,
-                    topic,log_topic):
+                tcp_host,tcp_port,
+                topic,log_topic):
     self.kafka_host = kafka_host
     self.kafka_port = kafka_port
     self.tcp_host = tcp_host
@@ -59,19 +59,39 @@ class TCPServerProducer:
       self.connections.add(addr)
       self.log("accepted "+addr)
     # Read data from connection
+    remaining_data = b""
     try:
       while True:
-        data = await reader.read(32224)                                 # 1024*16 bytes
+        data = await reader.read(8192)                                  # 1024*8 bytes
         if not data:
           break
-        self.producer.send(self.topic,data)
+        data = remaining_data + data
+        extraction = self.extract_hl7_messages(data)
+        messages = extraction["messages"]
+        remaining_data = extraction["remaining"]
+        for msg in messages:
+          self.producer.send(self.topic,msg)
     except asyncio.CancelledError:
       pass
     finally:
       self.connections.remove(addr)
       self.log("closed "+addr)
       writer.close()
-
+  
+  def extract_hl7_messages(self,byte_stream):
+    messages = []
+    remaining = byte_stream
+    while True:
+      try:
+        start_idx = remaining.index(MESSAGE_START_BYTE)
+        end_idx = remaining.index(MESSAGE_END_BYTE,start_idx+1)+1
+        msg = remaining[start_idx:end_idx+1]
+        messages.append(msg)
+        remaining = remaining[end_idx+1:]
+      except ValueError:
+        break
+    return {"messages":messages,"remaining":remaining}
+  
   def cleanup(self):
     self.log("shutdown")
     self.producer.flush()
