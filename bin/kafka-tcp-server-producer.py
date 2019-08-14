@@ -48,15 +48,14 @@ class TCPServerProducer:
     await tcpServer.serve_forever()
 
   async def connection_handler(self,reader,writer):
-    addr = None
-    try:
-      addr = str(writer.get_extra_info("socket").getpeername())
-    except OSError:
-      return
+    addr = str(writer.get_extra_info("peername")
     # A new connection, but we can accept no more
     if addr not in self.connections and len(self.connections)>=self.MAX_CONNECTION:
       self.log("refused "+addr)
-      writer.write(b"Connection refused.")
+      try:
+        writer.write(b"Connection refused.")
+      except OSError:
+        return
       writer.close()
       return
     # An existing connection
