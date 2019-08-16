@@ -110,7 +110,10 @@ class TCPServerProducer:
     if addr in self.connections:
       self.log("{} closed".format(addr))
       writer = self.connections.pop(addr)
-      writer.close()
+      try:
+        writer.close()
+      except ConnectionResetError:
+        pass
 
   def cleanup(self):
     self.log("shutdown")
