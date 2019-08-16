@@ -50,21 +50,12 @@ class TCPServerProducer:
   async def connection_handler(self,reader,writer):
     addr = str(writer.get_extra_info("peername"))
     # A new connection, but we can accept no more
-    if addr not in self.connections and len(self.connections)>=self.MAX_CONNECTION:
-      self.log("refused "+addr)
-      try:
-        writer.write(b"Connection refused.")
-      except OSError:
-        return
-      writer.close()
+    if addr not in self.connections and \
+        len(connections)>=self.MAX_CONNECTION:
+      self.refuse_client(addr,writer)
       return
-    # An existing connection
-    elif addr in self.connections:
-      pass
-    # A new connection, but we are able to accept
-    else:
-      self.connections.add(addr)
-      self.log("accepted "+addr)
+    # Add connection
+    self.add_client(addr,writer)
     # Read data from connection
     remaining_data = b""
     try:
@@ -78,12 +69,16 @@ class TCPServerProducer:
         remaining_data = extraction["remaining"]
         for msg in messages:
           self.producer.send(self.topic,msg)
-    except asyncio.CancelledError:
+    except BrokenPipeError:
+      """
+      Catches connecton reset by peer when we are sending the batched data,
+       which is also when we cannot check for reader. The broken connection
+       on the writer side will ultimately lead to  BrokenPipeError on the
+       reader side. Hence
+      """
       pass
     finally:
-      self.connections.remove(addr)
-      self.log("closed "+addr)
-      writer.close()
+      self.remove_client(addr)
   
   def extract_hl7_messages(self,byte_stream):
     messages = []
@@ -98,7 +93,25 @@ class TCPServerProducer:
       except ValueError:
         break
     return {"messages":messages,"remaining":remaining}
+
+  def refuse_client(self,addr,writer):
+    self.log("{} refused".format(addr))
+    writer.close()
   
+  def add_client(self,addr,writer):
+    if addr not in self.connections:
+      self.log("{} accepted".format(addr))
+      self.connections[addr] = writer
+    else:
+      self.remove_client(addr)
+      self.add_client(addr)
+  
+  def remove_client(self,addr):
+    if addr in self.connections:
+      self.log("{} closed".format(addr))
+      writer = self.connections.pop(addr)
+      writer.close()
+
   def cleanup(self):
     self.log("shutdown")
     self.producer.flush()
