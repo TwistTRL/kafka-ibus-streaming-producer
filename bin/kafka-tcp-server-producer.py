@@ -29,7 +29,7 @@ class TCPServerProducer:
     self.topic = topic
     self.log_topic = log_topic
     self.producer = KafkaProducer(bootstrap_servers=["{}:{}".format(kafka_host,kafka_port)])
-    self.connections = set()
+    self.connections = {}
     
   def log(self,msg):
     self.producer.send( self.log_topic,
