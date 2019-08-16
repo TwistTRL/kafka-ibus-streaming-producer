@@ -51,7 +51,7 @@ class TCPServerProducer:
     addr = str(writer.get_extra_info("peername"))
     # A new connection, but we can accept no more
     if addr not in self.connections and \
-        len(connections)>=self.MAX_CONNECTION:
+        len(self.connections)>=self.MAX_CONNECTION:
       self.refuse_client(addr,writer)
       return
     # Add connection
